@@ -224,7 +224,6 @@ const CsvExport = ({ address }: { address: string }) => {
   const [error, setError] = useState(false);
   const fcdURL = useFCDURL();
   const { chainID } = useCurrentChain();
-  const fetchLimit = 5;
 
   const rules = useLogfinderAmountRuleSet();
   const logMatcher = useMemo(() => createLogMatcherForAmounts(rules), [rules]);
@@ -241,11 +240,8 @@ const CsvExport = ({ address }: { address: string }) => {
         let offset: number | undefined = 0;
         let allTxs: TxResponse[] = [];
 
-        // max tx number = fetchLimit * 100
-        let fetchCount = 0;
-
-        // fetch latest fetchLimit * 100 transactions
-        while (fetchCount < fetchLimit) {
+        // fetch ALL transactions
+        while (true) {
           const params: Params = { offset, limit, account: address };
           try {
             const result = await apiClient.get(fcdURL + "/v1/txs", {
@@ -254,15 +250,17 @@ const CsvExport = ({ address }: { address: string }) => {
 
             if (result.data === null) {
               setError(true);
-              fetchCount++;
+              break;
             } else {
               allTxs = allTxs.concat(result.data.txs);
               offset = result.data.next;
-              fetchCount = offset ? fetchCount + 1 : (fetchCount = fetchLimit);
+              if (!offset) {
+                break;
+              }
             }
           } catch {
             setError(true);
-            fetchCount = fetchLimit;
+            break;
           }
         }
 
@@ -421,7 +419,7 @@ const CsvExport = ({ address }: { address: string }) => {
         {error && !loading && (
           <span className={s.error}>(Something went wrong...)</span>
         )}
-        <span> (Latest {fetchLimit * 100} transactions)</span>
+        <span> (All transactions)</span>
       </>
     );
   } catch {
